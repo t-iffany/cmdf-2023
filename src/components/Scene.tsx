@@ -6,13 +6,18 @@ import "./Scene.css";
 import {GiExitDoor} from "react-icons/gi";
 import {useNavigate} from "react-router-dom";
 import axios from 'axios';
+import {RiSunFoggyFill} from "react-icons/ri";
+import {BsFillCloudRainFill, BsArrowRightShort} from "react-icons/bs";
+
+const MAX_SCORE = 4;
 
 export function Scene() {
   const navigate = useNavigate();
+  const [thoughts, setThoughts] = useState<{[key: string]: string}>({});
   const [loading, setLoading] = useState(true);
   const [playerSpeaking, setPlayerSpeaking] = useState(false);
   const [latestPlayerInput, setLatestPlayerInput] = useState("");
-  const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [aiSpeaking, setAiSpeaking] = useState(true);
   const [aiSpeechContent, setAiSpeechContent] = useState("What's worrying you?");
   const [playerSpeechContent, setPlayerSpeechContent] = useState("");
   const [aiPosition, setAiPosition] = useState([0, 0]);
@@ -24,6 +29,7 @@ export function Scene() {
   const camera = useRef<any>();
 
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [overlayPageNum, setOverlayPageNum] = useState(0);
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const calculateScreenPosition = (object: SPEObject) => {
@@ -60,9 +66,9 @@ export function Scene() {
     });
   };
 
-  const askAi = async (belief: string, replacePlayerPhrase: string | undefined) => {
-    if (replacePlayerPhrase) {
-      setPlayerSpeechContent(replacePlayerPhrase);
+  const askAi = async (belief: string, regenerate: boolean) => {
+    if (regenerate) {
+      setPlayerSpeechContent("Hmm, that doesn't fit me...");
     } else {
       setPlayerSpeechContent(belief);
     }
@@ -73,11 +79,14 @@ export function Scene() {
 
     cohereRequest(belief).then((result: any) => {
       console.log(result);
+      const reframedBelief = result.result;
       setPlayerSpeaking(false);
       setAiSpeaking(true);
       setAwaitingAi(false);
       setPlayerSpeechContent("");
-      setAiSpeechContent(result.result);
+
+      setAiSpeechContent(reframedBelief);
+      setThoughts({...thoughts, [belief]: reframedBelief});
     });
   };
 
@@ -95,7 +104,7 @@ export function Scene() {
       console.log(err);
     });
 
-    navigate("/");
+    navigate("/home");
   };
 
   const awaitingPlayer = text.length > 0;
@@ -129,25 +138,41 @@ export function Scene() {
             />
             <button
               className="button"
-              disabled={playerSpeaking}
+              disabled={awaitingAi}
               onClick={async () => {
                 const belief = text;
                 setLatestPlayerInput(belief);
                 setText("");
-                await askAi(belief, undefined);
+                await askAi(belief, false);
               }}
             >
               Chat
             </button>
             <button
               className="button"
-              disabled={playerSpeaking}
+              disabled={awaitingAi}
               onClick={async () => {
-                await askAi(latestPlayerInput, "I don't know, can you say it differently?");
+                await askAi(latestPlayerInput, true);
               }}
             >
               Pick another
             </button>
+          </div>
+          <div id="score-container">
+            {/*Score: {Object.keys(thoughts).length}*/}
+            <div id="scores-container">
+              {
+                Array.from(Array(MAX_SCORE).keys()).map((i) => (
+                  <div className="score-icon-container">
+                    {
+                      i < Object.keys(thoughts).length ?
+                        <RiSunFoggyFill size={30} className="sun"/> :
+                        <BsFillCloudRainFill size={30} className="rain"/>
+                    }
+                  </div>
+                ))
+              }
+            </div>
           </div>
           <button
             id="exit-button"
@@ -161,19 +186,58 @@ export function Scene() {
             <div id="overlay-container">
               <div id="overlay">
                 <h2 style={{margin: 0}}>Thank you for playing</h2>
-                <div>
-                  Enter your phone number if you would like to receive a daily text reminder to play again!
-                </div>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="(Optional) xxx-xxx-xxxx"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
+                {
+                  overlayPageNum == 0 &&
+                  <>
+                    <div>
+                      Congratulations on reflecting on {Object.keys(thoughts).length} thoughts!
+                    </div>
+                    <div>
+                      Review the thoughts you've reframed:
+                    </div>
+                    <div className="thoughts-grid">
+                      {
+                        Object.keys(thoughts).map((originalThought) => (
+                          <>
+                            <div>{originalThought}</div>
+                            <div><BsArrowRightShort size={25}/></div>
+                            <div>{thoughts[originalThought]}</div>
+                          </>
+                        ))
+                      }
+                    </div>
+                  </>
+                }
+                {
+                  overlayPageNum == 1 &&
+                  <>
+                    <div>
+                      Enter your phone number if you would like to receive a daily text reminder to play again!
+                    </div>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="(Optional) xxx-xxx-xxxx"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                    />
+                  </>
+                }
                 <div id="overlay-buttons-container">
-                  <button className="button" onClick={() => setOverlayOpen(false)}>Go back</button>
-                  <button className="button" onClick={() => onExit()}>See you soon</button>
+                  {
+                    overlayPageNum === 0 &&
+                    <>
+                      <button className="button" onClick={() => setOverlayOpen(false)}>Go back</button>
+                      <button className="button" onClick={() => setOverlayPageNum(overlayPageNum + 1)}>Next</button>
+                    </>
+                  }
+                  {
+                    overlayPageNum === 1 &&
+                    <>
+                      <button className="button" onClick={() => setOverlayPageNum(overlayPageNum - 1)}>Go back</button>
+                      <button className="button" onClick={() => onExit()}>See you soon</button>
+                    </>
+                  }
                 </div>
               </div>
             </div>
