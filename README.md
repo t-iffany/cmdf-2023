@@ -19,7 +19,7 @@ An interactive 3D game that promotes mental health and wellness, while providing
 
 ## Tech Stack
 
-* Spline, Cohere API, Twilio API, React, Typescript, Javascript, CSS, HTML, NodeJS, ExpressJS
+* Spline, Cohere API, Twilio API, React, Typescript, Javascript, CSS, HTML, NodeJS, ExpressJS, ThreeJS
 
 ## Installation
 
